@@ -5,13 +5,17 @@ Opening 5mins
 - 課程目標
 - Agenda
 
+Why Chart & D3.js ? 10mins
+- 資料視覺化的重要性
+- 圖表技術選型
+- 展示 D3.js 的優勢
+
 D3.js Intro 15mins
-- 概念講解：資料視覺化
 - 概念講解：資料綁定（Data Binding）
 - 概念講解：資料更新邏輯（Enter, Update, Exit）
 - 實作：練習 D3.js 中的資料更新
 
-D3.js Pie Chart 20mins
+D3.js Pie Chart 10mins
 - 概念講解：Pie Chat
 - 實作：資料套入圓餅圖中
 

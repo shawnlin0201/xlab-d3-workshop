@@ -3,6 +3,7 @@
  * 點擊縣市，顯示該縣市的景點
  * 點擊縣市，畫面移動到該縣市
  * 初始畫面顯示特定縣市
+ * 點擊景點時，highlight 該 circle
  */
 
 const map = L.map("map-container").setView([23.5, 121], 8); // 設定台灣為中心點

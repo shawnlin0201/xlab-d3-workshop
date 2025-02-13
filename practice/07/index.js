@@ -6,188 +6,251 @@
  * 點擊景點時，highlight 該 circle
  */
 
-const map = L.map("map-container").setView([23.5, 121], 8); // 設定台灣為中心點
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "&copy; OpenStreetMap contributors",
+const map = L.map("map-container").setView([23.5, 121], 8);
+
+// 夜間模式圖磚
+L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.{ext}', {
+  minZoom: 0,
+  maxZoom: 20,
+  attribution: '&copy; <a href="https://www.stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  ext: 'png'
 }).addTo(map);
 
-// 建立 D3.js 的 `svg` 圖層，疊加在 Leaflet 上
+// 建立 D3.js 的 `svg` 層
 const svg = d3.select(map.getPanes().overlayPane).append("svg");
-const g = svg.append("g").attr("class", "leaflet-zoom-hide");
 
-// 建立 D3.js 投影 (Leaflet 需要 `d3.geoTransform`)
+// **不同圖層** 確保不互相覆蓋
+const gDistricts = svg.append("g").attr("class", "leaflet-zoom-hide district-layer");
+const gCities = svg.append("g").attr("class", "leaflet-zoom-hide city-layer");
+const gPOI = svg.append("g").attr("class", "leaflet-zoom-hide poi-layer");
+
+// D3.js 投影設定
 const transform = d3.geoTransform({
   point: function (x, y) {
     const point = map.latLngToLayerPoint([y, x]);
     this.stream.point(point.x, point.y);
   },
 });
-
 const path = d3.geoPath().projection(transform);
 
-// 載入台灣行政區 TopoJSON
-d3.json("/asserts/taiwan.json").then((data) => {
-  const features = topojson.feature(
-    data,
-    data.objects.COUNTY_MOI_1130718
-  ).features;
+let cityFeatures, districtFeatures, regionsCities, regionsDistricts, poiElements;
 
-  // 繪製台灣行政區
-  const regions = g
+// 載入縣市資料
+d3.json("/asserts/city.json").then((data) => {
+  cityFeatures = topojson.feature(data, data.objects.COUNTY_MOI_1130718).features;
+
+  regionsCities = gCities
     .selectAll("path")
-    .data(features)
+    .data(cityFeatures)
     .join("path")
-    .attr("fill", "rgba(255, 255, 255, 0.2)")
-    .attr("stroke", "black")
-    .attr("stroke-width", 1);
+    .attr("fill", "rgba(200, 200, 200, 0)")
+    .attr("stroke", "rgba(255, 255, 255, 0.2)")
+    .attr("stroke-width", 2);
 
-  // 加入縣市標籤
-  const labels = g
-    .selectAll("text")
-    .data(features)
-    .join("text")
-    .attr("text-anchor", "middle")
-    .attr("font-size", "12px")
-    .attr("fill", "black")
-
-
-  // 更新地圖時，確保 SVG 不會被裁切
-  function reset() {
-    // 先清空原本的 POI 圖層
-    g.selectAll("circle").remove();
-
-    const bounds = path.bounds({ type: "FeatureCollection", features });
-    const topLeft = bounds[0];
-    const bottomRight = bounds[1];
-
-    // 設定 SVG 的大小，使其不會被裁切
-    svg
-      .attr("width", bottomRight[0] - topLeft[0])
-      .attr("height", bottomRight[1] - topLeft[1])
-      .style("left", `${topLeft[0]}px`)
-      .style("top", `${topLeft[1]}px`);
-
-    // 確保行政區不會被裁切
-    g.attr("transform", `translate(${-topLeft[0]}, ${-topLeft[1]})`);
-
-    // 更新行政區路徑
-    regions.attr("d", path);
-    labels.attr("transform", (d) => `translate(${path.centroid(d)})`);
-
-    // 加入 POI 圖層
-    d3.csv("/asserts/poi.csv").then((rawData) => {
-      // 取得當下縮放等級
-      const zoomLevel = map.getZoom();
-      console.log('zoomLevel',zoomLevel)
-      const data = rawData.filter(d => d.Region === '新北市') // todo: 這裡可以改成選擇的縣市
-      const poi = g
-        .selectAll("circle")
-        .data(data)
-        .join("circle")
-        .attr("class", "poi-marker")
-        .attr("r", () => {
-          switch(zoomLevel){
-            case 8:
-            case 9:
-              return 2
-            case 10:
-            case 11:
-            case 12:
-              return 4
-            case 13:
-            case 14:
-              return 7
-            case 15:
-              return 8
-            case 16:
-              return 9
-            case 17:
-              return 10
-            case 18:
-              return 11
-            default:
-              return 1
-          }
-        })
-        .attr("fill", (d) => {
-          let color = "white";
-          if(d.Name.indexOf('神社') > 1) color = 'brown'
-          if(d.Name.indexOf('廟') > 1) color = 'brown'
-          if(d.Name.indexOf('堂') > 1) color = 'brown'
-          if(d.Name.indexOf('寺') > 1) color = 'brown'
-          if(d.Name.indexOf('宮') > 1) color = 'brown'
-          if(d.Name.indexOf('殿') > 1) color = 'brown'
-          if(d.Name.indexOf('美術館') > 1) color = 'blue'
-          if(d.Name.indexOf('藝文館') > 1) color = 'blue'
-          if(d.Name.indexOf('藝術館') > 1) color = 'blue'
-          if(d.Name.indexOf('藝文中心') > 1) color = 'blue'
-          if(d.Name.indexOf('畫廊') > 1) color = 'blue'
-          if(d.Name.indexOf('設計館') > 1) color = 'blue'
-          if(d.Name.indexOf('植物園') > 1) color = 'blue'
-          if(d.Name.indexOf('文化創意') > 1) color = 'blue'
-          if(d.Name.indexOf('文化園區') > 1) color = 'blue'
-          if(d.Name.indexOf('文化館') > 1) color = 'blue'
-          if(d.Name.indexOf('博物館') > 1) color = 'blue'
-          if(d.Name.indexOf('劇場') > 1) color = 'lightblue'
-          if(d.Name.indexOf('戲園') > 1) color = 'lightblue'
-          if(d.Name.indexOf('戲棚') > 1) color = 'lightblue'
-          if(d.Name.indexOf('夜市') > 1) color = 'red'
-          if(d.Name.indexOf('商圈') > 1) color = 'red'
-          if(d.Name.indexOf('公園') > 1) color = 'green'
-          if(d.Name.indexOf('步道') > 1) color = 'lightgreen'
-          if(d.Name.indexOf('古道') > 1) color = 'lightgreen'
-          return color
-        })
-        .attr("stroke", "black")
-        .attr("stroke-width", () => {
-          switch(zoomLevel){
-            case 8:
-            case 9:
-              return 0.5
-            case 10:
-            case 11:
-            case 12:
-              return 1
-            case 13:
-            case 14:
-              return 2
-            case 15:
-              return 3
-            case 16:
-              return 4
-            case 17:
-              return 5
-            case 18:
-              return 6
-            default:
-              return 0.1
-          }
-        })
-        .attr("transform", (d) => {
-          const point = map.latLngToLayerPoint([d.Py, d.Px]);
-          return `translate(${point.x}, ${point.y})`;
-        });
-
-      poi.on("click", (e, d) => {
-        console.log(d)
-        document.querySelector("#tooltip-container").innerHTML = `
-            <div class="tooltip-title">${d.Name}</div>
-            <div class="tooltip-address">${d.Add}</div>
-            <div class="tooltip-open">${d.Opentime}</div>
-            <div class="tooltip-description">${d.Travellinginfo}</div>
-            <div class="tooltip-phone">電話：${d.Tel}</div>
-            <div class="tooltip-image-container">
-                <img class="tooltip-image" src="${d.Picture1}">
-                <img class="tooltip-image" src="${d.Picture2}">
-                <img class="tooltip-image" src="${d.Picture3}">
-            </div>
-        `;
-      });
-    });
-  }
-
-  // 監聽地圖縮放 & 移動，確保行政區正確對齊
-  map.on("zoomend", reset);
-  
-  reset(); // 初始更新
+  resetCities();
 });
+
+// 載入行政區資料
+d3.json("/asserts/district.json").then((data) => {
+  districtFeatures = topojson.feature(data, data.objects.TOWN_MOI_1131028).features;
+
+  regionsDistricts = gDistricts
+    .selectAll("path")
+    .data(districtFeatures)
+    .join("path")
+    .attr("fill", "rgba(200, 200, 200, 0)")
+    .attr("stroke", "rgba(255, 255, 255, 0.2)")
+    .attr("stroke-width", 0.5);
+
+  resetDistricts();
+});
+
+// **重設縣市圖層**
+function resetCities() {
+  if (!cityFeatures) return;
+
+  const bounds = path.bounds({
+    type: "FeatureCollection",
+    features: cityFeatures,
+  });
+  const topLeft = bounds[0];
+  const bottomRight = bounds[1];
+
+  svg
+    .attr("width", bottomRight[0] - topLeft[0])
+    .attr("height", bottomRight[1] - topLeft[1])
+    .style("left", `${topLeft[0]}px`)
+    .style("top", `${topLeft[1]}px`);
+
+  gCities.attr("transform", `translate(${-topLeft[0]}, ${-topLeft[1]})`);
+  regionsCities.attr("d", path);
+}
+
+// **重設行政區圖層**
+function resetDistricts() {
+  if (!districtFeatures) return;
+
+  const bounds = path.bounds({
+    type: "FeatureCollection",
+    features: districtFeatures,
+  });
+
+  gDistricts.attr("transform", `translate(${-bounds[0][0]}, ${-bounds[0][1]})`);
+  regionsDistricts.attr("d", path);
+}
+
+// **重設 POI 層**
+function resetPOI() {
+  if (!poiElements) return;
+  const zoomLevel = map.getZoom();
+  const bounds = path.bounds({
+    type: "FeatureCollection",
+    features: cityFeatures, // 以縣市範圍計算，確保不跑偏
+  });
+
+  gPOI.attr("transform", `translate(${-bounds[0][0]}, ${-bounds[0][1]})`);
+
+  poiElements.attr("transform", (d) => {
+    const point = map.latLngToLayerPoint([+d.Py, +d.Px]);
+    return `translate(${point.x}, ${point.y})`;
+  });
+
+  console.log('zoomLevel',zoomLevel)
+  poiElements
+  .attr("r", () => {
+    switch(zoomLevel){
+      case 8:
+        return 1
+        case 9:
+        return 1.5
+      case 10:
+        return 2
+      case 11:
+      case 12:
+        return 3
+      case 13:
+      case 14:
+        return 5
+      case 15:
+        return 6
+      case 16:
+        return 7
+      case 17:
+        return 8
+      case 18:
+        return 9
+      default:
+        return 1
+    }
+  })
+  .attr("stroke-width", () => {
+    switch(zoomLevel){
+      case 8:
+      case 9:
+        return 0.5
+      case 10:
+      case 11:
+      case 12:
+        return 1
+      case 13:
+      case 14:
+        return 2
+      case 15:
+        return 3
+      case 16:
+        return 4
+      case 17:
+        return 5
+      case 18:
+        return 6
+      default:
+        return 0.1
+    }
+  });
+}
+
+// **載入 POI 資料**
+function loadPOI(selectedCity) {
+  gPOI.selectAll("circle").remove(); // 清除舊的 POI
+
+  d3.csv("/asserts/poi.csv").then((rawData) => {
+    const zoomLevel = map.getZoom();
+    // const data = rawData.filter((d) => d.Region === selectedCity); // 選擇縣市
+    const data = rawData
+
+    poiElements = gPOI
+      .selectAll("circle")
+      .data(data)
+      .join("circle")
+      .attr("class", "poi-marker")
+      .attr("r", '1')
+      .attr("fill", (d) => {
+        let color = "white";
+        if(d.Name.indexOf('神社') > 1) color = 'brown'
+        if(d.Name.indexOf('廟') > 1) color = 'brown'
+        if(d.Name.indexOf('堂') > 1) color = 'brown'
+        if(d.Name.indexOf('寺') > 1) color = 'brown'
+        if(d.Name.indexOf('宮') > 1) color = 'brown'
+        if(d.Name.indexOf('殿') > 1) color = 'brown'
+        if(d.Name.indexOf('美術館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝文館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝術館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝文中心') > 1) color = 'blue'
+        if(d.Name.indexOf('畫廊') > 1) color = 'blue'
+        if(d.Name.indexOf('設計館') > 1) color = 'blue'
+        if(d.Name.indexOf('植物園') > 1) color = 'blue'
+        if(d.Name.indexOf('文化創意') > 1) color = 'blue'
+        if(d.Name.indexOf('文化園區') > 1) color = 'blue'
+        if(d.Name.indexOf('文化館') > 1) color = 'blue'
+        if(d.Name.indexOf('博物館') > 1) color = 'blue'
+        if(d.Name.indexOf('劇場') > 1) color = 'lightblue'
+        if(d.Name.indexOf('戲園') > 1) color = 'lightblue'
+        if(d.Name.indexOf('戲棚') > 1) color = 'lightblue'
+        if(d.Name.indexOf('夜市') > 1) color = 'red'
+        if(d.Name.indexOf('商圈') > 1) color = 'red'
+        if(d.Name.indexOf('公園') > 1) color = 'green'
+        if(d.Name.indexOf('步道') > 1) color = 'lightgreen'
+        if(d.Name.indexOf('古道') > 1) color = 'lightgreen'
+        return color
+      })
+      .style("opacity", 0.5)
+      .attr("stroke", 'rgba(255, 255, 0, 0.5)')
+      .attr("stroke-width", '1');
+
+    resetPOI(); // 確保初始時正確計算 POI 位置
+
+    poiElements.on("click", (e, d) => {
+      document.querySelector("#tooltip-container").innerHTML = `
+        <div class="tooltip-title">${d.Name}</div>
+        <div class="tooltip-address">${d.Add}</div>
+        <div class="tooltip-open">${d.Opentime}</div>
+        <div class="tooltip-description">${d.Travellinginfo}</div>
+        <div class="tooltip-phone">電話：${d.Tel}</div>
+        <div class="tooltip-image-container">
+            <img class="tooltip-image" src="${d.Picture1}">
+            <img class="tooltip-image" src="${d.Picture2}">
+            <img class="tooltip-image" src="${d.Picture3}">
+        </div>
+      `;
+    });
+  });
+}
+
+// **監聽縮放與移動事件**
+map.on("zoomend", () => {
+  resetCities();
+  resetDistricts();
+  resetPOI(); // 讓 POI 層級跟著縮放
+});
+
+map.on("moveend", () => {
+  resetPOI(); // 讓 POI 層級跟著移動
+});
+
+// **點擊縣市時顯示 POI**
+regionsCities?.on("click", (e, d) => {
+  loadPOI(d.properties.COUNTYNAME);
+});
+
+// **初始載入臺北市 POI**
+loadPOI("臺北市");

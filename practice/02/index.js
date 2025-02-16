@@ -15,8 +15,9 @@ svg
 
 svg
     .append("rect")
+    .attr('class', 'rect-blue')
     .attr('x', 0)
     .attr('y', height / 3 * 2)
     .attr("width", width)
     .attr("height", height / 3)
-    .attr("fill", "red");
+    .attr("fill", "blue");

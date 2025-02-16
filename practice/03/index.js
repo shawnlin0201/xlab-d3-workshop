@@ -14,10 +14,13 @@ for (let i = 0; i < 6; i++) {
     .attr("fill", i % 2 === 0 ? "red" : "blue");
 }
 
-/* case1: 練習透過 data bind: data() 繪製哥斯達黎加國旗 */
+/** case1: 練習透過 data bind: data() 繪製哥斯達黎加國旗
+ * ["darkblue", "white", "red", "red", "white", "darkblue"]
+ */
 
 
 
-
-/* case2: 練習透過 data bind: datum() 繪製泰國國旗 */
+/** case2: 練習透過 data bind: datum() 繪製泰國國旗
+ * ["red", "white", "darkblue", "darkblue", "white", "red"]
+ */
 

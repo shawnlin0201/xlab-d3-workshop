@@ -42,11 +42,11 @@ addButton.addEventListener("click", () => {
     .data(color)
     .enter() // 資料若比選取到的 rect 少，則會選取到少於資料的數量
     .append("rect")
-    .attr("x", 0)
-    .attr("y", (d, i) => i * (height / 6))
     .attr("width", width)
     .attr("height", height / 6)
-    .attr("fill", (d) => d);
+    .attr("fill", (d) => d)
+    .attr("x", 0)
+    .attr("y", (d, i) => i * (height / 6))
 });
 
 

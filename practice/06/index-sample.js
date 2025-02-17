@@ -11,7 +11,9 @@ let data = [
 
 container.append(svg.node());
 
+// 算出月份的範圍 e.g. 01月 ~ 12月
 const months = d3.range(12).map(i => `${(i + 1).toString().padStart(2, '0')}月`);
+// 算出最高價與最低價，好讓 y 軸高度可以依照最高價與最低價做調整
 const maxPrice = d3.max(data.flatMap(d => d.price));
 const minPrice = d3.min(data.flatMap(d => d.price));
 
@@ -67,6 +69,8 @@ svg.append("g")
   return d.color;
 })
 .attr("stroke-width", 2);
+
+// --------------------- 回家練習作業 --------------------- //
 
 
 /**

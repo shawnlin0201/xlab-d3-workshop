@@ -1,7 +1,5 @@
-// const map = L.map("map-container").setView([23.5, 121], 8);
 const map = L.map("map-container").setView([25.05, 121.55], 12);
 
-// 夜間模式圖磚
 L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.{ext}', {
   minZoom: 0,
   maxZoom: 20,
@@ -9,15 +7,11 @@ L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{
   ext: 'png'
 }).addTo(map);
 
-// 建立 D3.js 的 `svg` 層
 const svg = d3.select(map.getPanes().overlayPane).append("svg");
-
-// **不同圖層** 確保不互相覆蓋
 const gDistricts = svg.append("g").attr("class", "leaflet-zoom-hide district-layer");
 const gCities = svg.append("g").attr("class", "leaflet-zoom-hide city-layer");
 const gPOI = svg.append("g").attr("class", "leaflet-zoom-hide poi-layer");
 
-// D3.js 投影設定
 const transform = d3.geoTransform({
   point: function (x, y) {
     const point = map.latLngToLayerPoint([y, x]);
@@ -28,7 +22,6 @@ const path = d3.geoPath().projection(transform);
 
 let cityFeatures, districtFeatures, regionsCities, regionsDistricts, poiElements;
 
-// 載入縣市資料
 d3.json("/asserts/city.json").then((data) => {
   console.log(data.objects.COUNTY_MOI_1130718)
   cityFeatures = topojson.feature(data, data.objects.COUNTY_MOI_1130718).features;
@@ -44,7 +37,6 @@ d3.json("/asserts/city.json").then((data) => {
   resetCities();
 });
 
-// 載入行政區資料
 d3.json("/asserts/district.json").then((data) => {
   districtFeatures = topojson.feature(data, data.objects.TOWN_MOI_1131028).features;
 
@@ -59,7 +51,6 @@ d3.json("/asserts/district.json").then((data) => {
   resetDistricts();
 });
 
-// **重設縣市圖層**
 function resetCities() {
   if (!cityFeatures) return;
 
@@ -80,7 +71,6 @@ function resetCities() {
   regionsCities.attr("d", path);
 }
 
-// **重設行政區圖層**
 function resetDistricts() {
   if (!districtFeatures) return;
 
@@ -93,16 +83,86 @@ function resetDistricts() {
   regionsDistricts.attr("d", path);
 }
 
-// **重設 POI 層**
+function loadPOI() {
+  gPOI.selectAll("circle").remove(); // 清除舊的 POI
+
+  d3.csv("/asserts/poi.csv").then((rawData) => {
+    const data = rawData
+
+    poiElements = gPOI
+      .selectAll("circle")
+      .data(data)
+      .join("circle")
+      .attr("class", "poi-marker")
+      .attr("r", '1')
+      .attr("fill", (d) => {
+        let color = "white";
+        if(d.Name.indexOf('神社') > 1) color = 'brown'
+        if(d.Name.indexOf('廟') > 1) color = 'brown'
+        if(d.Name.indexOf('堂') > 1) color = 'brown'
+        if(d.Name.indexOf('寺') > 1) color = 'brown'
+        if(d.Name.indexOf('宮') > 1) color = 'brown'
+        if(d.Name.indexOf('殿') > 1) color = 'brown'
+        if(d.Name.indexOf('美術館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝文館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝術館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝文中心') > 1) color = 'blue'
+        if(d.Name.indexOf('畫廊') > 1) color = 'blue'
+        if(d.Name.indexOf('設計館') > 1) color = 'blue'
+        if(d.Name.indexOf('植物園') > 1) color = 'blue'
+        if(d.Name.indexOf('文化創意') > 1) color = 'blue'
+        if(d.Name.indexOf('文化園區') > 1) color = 'blue'
+        if(d.Name.indexOf('文化館') > 1) color = 'blue'
+        if(d.Name.indexOf('博物館') > 1) color = 'blue'
+        if(d.Name.indexOf('劇場') > 1) color = 'lightblue'
+        if(d.Name.indexOf('戲園') > 1) color = 'lightblue'
+        if(d.Name.indexOf('戲棚') > 1) color = 'lightblue'
+        if(d.Name.indexOf('夜市') > 1) color = 'red'
+        if(d.Name.indexOf('商圈') > 1) color = 'red'
+        if(d.Name.indexOf('公園') > 1) color = 'green'
+        if(d.Name.indexOf('步道') > 1) color = 'lightgreen'
+        if(d.Name.indexOf('古道') > 1) color = 'lightgreen'
+        return color
+      })
+      .style("opacity", 0.5)
+      .attr("stroke", 'rgba(255, 255, 0, 0.5)')
+      .attr("stroke-width", '1');
+
+    resetPOI();
+
+    /**
+     * case1: 綁定 POI 點擊事件
+     */
+
+    poiElements.on("click", (e, d) => {
+      document.querySelector("#tooltip-container").innerHTML = `
+        <div class="tooltip-title">${d.Name}</div>
+        <div class="tooltip-address">${d.Add}</div>
+        <div class="tooltip-open">${d.Opentime}</div>
+        <div class="tooltip-description">${d.Travellinginfo}</div>
+        <div class="tooltip-phone">電話：${d.Tel}</div>
+        <div class="tooltip-image-container">
+            <img class="tooltip-image" src="${d.Picture1}">
+            <img class="tooltip-image" src="${d.Picture2}">
+            <img class="tooltip-image" src="${d.Picture3}">
+        </div>
+      `;
+    });
+  });
+}
+
 function resetPOI() {
   if (!poiElements) return;
   const zoomLevel = map.getZoom();
   const bounds = path.bounds({
     type: "FeatureCollection",
-    features: cityFeatures, // 以縣市範圍計算，確保不跑偏
+    features: cityFeatures,
   });
 
-  gPOI.attr("transform", `translate(${-bounds[0][0]}, ${-bounds[0][1]})`);
+  const left = bounds[0][0];
+  const top = bounds[0][1];
+
+  gPOI.attr("transform", `translate(${-left}, ${-top})`);
 
   poiElements.attr("transform", (d) => {
     const point = map.latLngToLayerPoint([+d.Py, +d.Px]);
@@ -162,73 +222,6 @@ function resetPOI() {
   });
 }
 
-// **載入 POI 資料**
-function loadPOI() {
-  gPOI.selectAll("circle").remove(); // 清除舊的 POI
-
-  d3.csv("/asserts/poi.csv").then((rawData) => {
-    const zoomLevel = map.getZoom();
-    const data = rawData
-
-    poiElements = gPOI
-      .selectAll("circle")
-      .data(data)
-      .join("circle")
-      .attr("class", "poi-marker")
-      .attr("r", '1')
-      .attr("fill", (d) => {
-        let color = "white";
-        if(d.Name.indexOf('神社') > 1) color = 'brown'
-        if(d.Name.indexOf('廟') > 1) color = 'brown'
-        if(d.Name.indexOf('堂') > 1) color = 'brown'
-        if(d.Name.indexOf('寺') > 1) color = 'brown'
-        if(d.Name.indexOf('宮') > 1) color = 'brown'
-        if(d.Name.indexOf('殿') > 1) color = 'brown'
-        if(d.Name.indexOf('美術館') > 1) color = 'blue'
-        if(d.Name.indexOf('藝文館') > 1) color = 'blue'
-        if(d.Name.indexOf('藝術館') > 1) color = 'blue'
-        if(d.Name.indexOf('藝文中心') > 1) color = 'blue'
-        if(d.Name.indexOf('畫廊') > 1) color = 'blue'
-        if(d.Name.indexOf('設計館') > 1) color = 'blue'
-        if(d.Name.indexOf('植物園') > 1) color = 'blue'
-        if(d.Name.indexOf('文化創意') > 1) color = 'blue'
-        if(d.Name.indexOf('文化園區') > 1) color = 'blue'
-        if(d.Name.indexOf('文化館') > 1) color = 'blue'
-        if(d.Name.indexOf('博物館') > 1) color = 'blue'
-        if(d.Name.indexOf('劇場') > 1) color = 'lightblue'
-        if(d.Name.indexOf('戲園') > 1) color = 'lightblue'
-        if(d.Name.indexOf('戲棚') > 1) color = 'lightblue'
-        if(d.Name.indexOf('夜市') > 1) color = 'red'
-        if(d.Name.indexOf('商圈') > 1) color = 'red'
-        if(d.Name.indexOf('公園') > 1) color = 'green'
-        if(d.Name.indexOf('步道') > 1) color = 'lightgreen'
-        if(d.Name.indexOf('古道') > 1) color = 'lightgreen'
-        return color
-      })
-      .style("opacity", 0.5)
-      .attr("stroke", 'rgba(255, 255, 0, 0.5)')
-      .attr("stroke-width", '1');
-
-    resetPOI(); // 確保初始時正確計算 POI 位置
-
-    poiElements.on("click", (e, d) => {
-      document.querySelector("#tooltip-container").innerHTML = `
-        <div class="tooltip-title">${d.Name}</div>
-        <div class="tooltip-address">${d.Add}</div>
-        <div class="tooltip-open">${d.Opentime}</div>
-        <div class="tooltip-description">${d.Travellinginfo}</div>
-        <div class="tooltip-phone">電話：${d.Tel}</div>
-        <div class="tooltip-image-container">
-            <img class="tooltip-image" src="${d.Picture1}">
-            <img class="tooltip-image" src="${d.Picture2}">
-            <img class="tooltip-image" src="${d.Picture3}">
-        </div>
-      `;
-    });
-  });
-}
-
-// **監聽縮放與移動事件**
 map.on("zoomend", () => {
   resetCities();
   resetDistricts();
@@ -238,6 +231,5 @@ map.on("zoomend", () => {
 map.on("moveend", () => {
   resetPOI();
 });
-
 
 loadPOI();

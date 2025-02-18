@@ -7,14 +7,24 @@ L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{
   ext: 'png'
 }).addTo(map);
 
-// 建立 D3.js 的 `svg` 層
-const svg = d3.select(map.getPanes().overlayPane).append("svg");
 
-// 確保不同圖層不會互相覆蓋
+/**
+ * case1: 建立 D3.js 的圖層，並透過 <g> 標籤確保後續不同圖層資料不會互相覆蓋
+ */
+
+const svg = d3.select(map.getPanes().overlayPane).append("svg");
 const gDistricts = svg.append("g").attr("class", "leaflet-zoom-hide district-layer");
 const gCities = svg.append("g").attr("class", "leaflet-zoom-hide city-layer");
 
-// D3.js 投影設定
+
+/**
+ * case2: D3.js 投影設定，將經緯度座標轉換為畫布上的點
+ * - geoTransform() 用於定義 D3.js 投影的轉換函數
+ * - latLngToLayerPoint() 透過 Leaflet 的 API 將經緯度座標轉換為畫布上的點
+ * - stream 則是將轉換後的點繪製到畫布上
+ * - geoPath() 用於定義地理路徑產生器，並設定投影函數
+ */
+
 const transform = d3.geoTransform({
   point: function (x, y) {
     const point = map.latLngToLayerPoint([y, x]);
@@ -23,12 +33,14 @@ const transform = d3.geoTransform({
 });
 const path = d3.geoPath().projection(transform);
 
-let cityFeatures, districtFeatures, regionsCities, regionsDistricts, poiElements;
+let cityFeatures, districtFeatures, regionsCities, regionsDistricts;
 
-// 載入縣市資料
+/**
+ * case4: 載入縣市資料
+ * topojson.feature() 用於將 TopoJSON 物件轉換為 GeoJSON 物件
+ */
 d3.json("/asserts/city.json").then((data) => {
   cityFeatures = topojson.feature(data, data.objects.COUNTY_MOI_1130718).features;
-
   regionsCities = gCities
     .selectAll("path")
     .data(cityFeatures)
@@ -40,7 +52,41 @@ d3.json("/asserts/city.json").then((data) => {
   resetCities();
 });
 
-// 載入行政區資料
+/**
+ * case5: 重設縣市圖層
+ * path.bounds() 用於計算資料的範圍
+ * e.g. [[-100, -50], [50, 100]]
+ * 左上角座標為 bounds[0]，右下角座標為 bounds[1]
+ * 
+ * 1. 將 SVG 圖層的寬高設定為資料範圍的寬高並對齊左上角
+ * 2. 將 縣市 圖層也對齊左上角
+ */
+function resetCities() {
+  if (!cityFeatures) return;
+
+  const bounds = path.bounds({
+    type: "FeatureCollection",
+    features: cityFeatures,
+  });
+
+  const top = bounds[0][1];
+  const left = bounds[0][0];
+  const right = bounds[1][0];
+  const bottom = bounds[1][1];
+
+  svg
+    .attr("width", right - left)
+    .attr("height", bottom - top)
+    .style("left", `${left}px`)
+    .style("top", `${top}px`);
+
+  gCities.attr("transform", `translate(${-left}, ${-top})`);
+  regionsCities.attr("d", path);
+}
+
+/**
+ * case6: 載入行政區資料
+ */
 d3.json("/asserts/district.json").then((data) => {
   districtFeatures = topojson.feature(data, data.objects.TOWN_MOI_1131028).features;
 
@@ -55,28 +101,9 @@ d3.json("/asserts/district.json").then((data) => {
   resetDistricts();
 });
 
-// 重設縣市圖層
-function resetCities() {
-  if (!cityFeatures) return;
-
-  const bounds = path.bounds({
-    type: "FeatureCollection",
-    features: cityFeatures,
-  });
-  const topLeft = bounds[0];
-  const bottomRight = bounds[1];
-
-  svg
-    .attr("width", bottomRight[0] - topLeft[0])
-    .attr("height", bottomRight[1] - topLeft[1])
-    .style("left", `${topLeft[0]}px`)
-    .style("top", `${topLeft[1]}px`);
-
-  gCities.attr("transform", `translate(${-topLeft[0]}, ${-topLeft[1]})`);
-  regionsCities.attr("d", path);
-}
-
-// 重設行政區圖層
+/**
+ * case7: 重設行政區圖層
+ */
 function resetDistricts() {
   if (!districtFeatures) return;
 
@@ -85,11 +112,16 @@ function resetDistricts() {
     features: districtFeatures,
   });
 
-  gDistricts.attr("transform", `translate(${-bounds[0][0]}, ${-bounds[0][1]})`);
+  const top = bounds[0][1];
+  const left = bounds[0][0];
+
+  gDistricts.attr("transform", `translate(${-left}, ${-top})`);
   regionsDistricts.attr("d", path);
 }
 
-// 監聽縮放與移動事件
+/**
+ * case8: 縮放地圖時重設縣市與行政區圖層
+ */
 map.on("zoomend", () => {
   resetCities();
   resetDistricts();

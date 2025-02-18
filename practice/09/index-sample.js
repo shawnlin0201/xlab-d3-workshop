@@ -11,7 +11,9 @@ const svg = d3.select(map.getPanes().overlayPane).append("svg");
 
 const gDistricts = svg.append("g").attr("class", "leaflet-zoom-hide district-layer");
 const gCities = svg.append("g").attr("class", "leaflet-zoom-hide city-layer");
-// 新增 POI 圖層
+/**
+ * case1: 新增 POI 圖層
+ */
 const gPOI = svg.append("g").attr("class", "leaflet-zoom-hide poi-layer");
 
 const transform = d3.geoTransform({
@@ -22,6 +24,9 @@ const transform = d3.geoTransform({
 });
 const path = d3.geoPath().projection(transform);
 
+/**
+ * case2: 新增 POI 資料變數
+ */
 let cityFeatures, districtFeatures, regionsCities, regionsDistricts, poiElements;
 
 d3.json("/asserts/city.json").then((data) => {
@@ -84,7 +89,66 @@ function resetDistricts() {
   regionsDistricts.attr("d", path);
 }
 
-// 重設 POI 層
+/**
+ * case3: 載入 POI 資料
+ * 1. 透過 d3.csv() 載入 POI 資訊
+ * 2. 設定 POI 圓點的樣式，與綁定點擊事件
+ * 3. 清除舊的 POI 圖層
+ * 4. 計算移動後的 POI 圖層位置
+*/
+function loadPOI() {
+  gPOI.selectAll("circle").remove(); // 清除舊的 POI
+
+  d3.csv("/asserts/poi.csv").then((rawData) => {
+    const data = rawData
+
+    poiElements = gPOI
+      .selectAll("circle")
+      .data(data)
+      .join("circle")
+      .attr("class", "poi-marker")
+      .attr("r", '1')
+      .attr("fill", (d) => {
+        let color = "white";
+        if(d.Name.indexOf('神社') > 1) color = 'brown'
+        if(d.Name.indexOf('廟') > 1) color = 'brown'
+        if(d.Name.indexOf('堂') > 1) color = 'brown'
+        if(d.Name.indexOf('寺') > 1) color = 'brown'
+        if(d.Name.indexOf('宮') > 1) color = 'brown'
+        if(d.Name.indexOf('殿') > 1) color = 'brown'
+        if(d.Name.indexOf('美術館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝文館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝術館') > 1) color = 'blue'
+        if(d.Name.indexOf('藝文中心') > 1) color = 'blue'
+        if(d.Name.indexOf('畫廊') > 1) color = 'blue'
+        if(d.Name.indexOf('設計館') > 1) color = 'blue'
+        if(d.Name.indexOf('植物園') > 1) color = 'blue'
+        if(d.Name.indexOf('文化創意') > 1) color = 'blue'
+        if(d.Name.indexOf('文化園區') > 1) color = 'blue'
+        if(d.Name.indexOf('文化館') > 1) color = 'blue'
+        if(d.Name.indexOf('博物館') > 1) color = 'blue'
+        if(d.Name.indexOf('劇場') > 1) color = 'lightblue'
+        if(d.Name.indexOf('戲園') > 1) color = 'lightblue'
+        if(d.Name.indexOf('戲棚') > 1) color = 'lightblue'
+        if(d.Name.indexOf('夜市') > 1) color = 'red'
+        if(d.Name.indexOf('商圈') > 1) color = 'red'
+        if(d.Name.indexOf('公園') > 1) color = 'green'
+        if(d.Name.indexOf('步道') > 1) color = 'lightgreen'
+        if(d.Name.indexOf('古道') > 1) color = 'lightgreen'
+        return color
+      })
+      .style("opacity", 0.5)
+      .attr("stroke", 'rgba(255, 255, 0, 0.5)')
+      .attr("stroke-width", '1');
+
+    resetPOI(); // 確保初始時正確計算 POI 位置
+
+    poiElements.on("click", (e, d) => {
+      console.log(d)
+    });
+  });
+}
+
 function resetPOI() {
   if (!poiElements) return;
   const zoomLevel = map.getZoom();
@@ -93,7 +157,10 @@ function resetPOI() {
     features: cityFeatures, // 以縣市範圍計算，確保不跑偏
   });
 
-  gPOI.attr("transform", `translate(${-bounds[0][0]}, ${-bounds[0][1]})`);
+  const left = bounds[0][0];
+  const top = bounds[0][1];
+
+  gPOI.attr("transform", `translate(${-left}, ${-top})`);
 
   poiElements.attr("transform", (d) => {
     const point = map.latLngToLayerPoint([+d.Py, +d.Px]);
@@ -153,61 +220,9 @@ function resetPOI() {
   });
 }
 
-// 載入 POI 資料
-function loadPOI(selectedCity) {
-  gPOI.selectAll("circle").remove(); // 清除舊的 POI
-
-  d3.csv("/asserts/poi.csv").then((rawData) => {
-    const zoomLevel = map.getZoom();
-    const data = rawData
-
-    poiElements = gPOI
-      .selectAll("circle")
-      .data(data)
-      .join("circle")
-      .attr("class", "poi-marker")
-      .attr("r", '1')
-      .attr("fill", (d) => {
-        let color = "white";
-        if(d.Name.indexOf('神社') > 1) color = 'brown'
-        if(d.Name.indexOf('廟') > 1) color = 'brown'
-        if(d.Name.indexOf('堂') > 1) color = 'brown'
-        if(d.Name.indexOf('寺') > 1) color = 'brown'
-        if(d.Name.indexOf('宮') > 1) color = 'brown'
-        if(d.Name.indexOf('殿') > 1) color = 'brown'
-        if(d.Name.indexOf('美術館') > 1) color = 'blue'
-        if(d.Name.indexOf('藝文館') > 1) color = 'blue'
-        if(d.Name.indexOf('藝術館') > 1) color = 'blue'
-        if(d.Name.indexOf('藝文中心') > 1) color = 'blue'
-        if(d.Name.indexOf('畫廊') > 1) color = 'blue'
-        if(d.Name.indexOf('設計館') > 1) color = 'blue'
-        if(d.Name.indexOf('植物園') > 1) color = 'blue'
-        if(d.Name.indexOf('文化創意') > 1) color = 'blue'
-        if(d.Name.indexOf('文化園區') > 1) color = 'blue'
-        if(d.Name.indexOf('文化館') > 1) color = 'blue'
-        if(d.Name.indexOf('博物館') > 1) color = 'blue'
-        if(d.Name.indexOf('劇場') > 1) color = 'lightblue'
-        if(d.Name.indexOf('戲園') > 1) color = 'lightblue'
-        if(d.Name.indexOf('戲棚') > 1) color = 'lightblue'
-        if(d.Name.indexOf('夜市') > 1) color = 'red'
-        if(d.Name.indexOf('商圈') > 1) color = 'red'
-        if(d.Name.indexOf('公園') > 1) color = 'green'
-        if(d.Name.indexOf('步道') > 1) color = 'lightgreen'
-        if(d.Name.indexOf('古道') > 1) color = 'lightgreen'
-        return color
-      })
-      .style("opacity", 0.5)
-      .attr("stroke", 'rgba(255, 255, 0, 0.5)')
-      .attr("stroke-width", '1');
-
-    resetPOI(); // 確保初始時正確計算 POI 位置
-
-    poiElements.on("click", (e, d) => {
-      console.log(d)
-    });
-  });
-}
-
+/**
+ * case4: 在縮放與移動地圖時重設縣市、行政區與 POI 圖層
+ */
 map.on("zoomend", () => {
   resetCities();
   resetDistricts();

@@ -11,6 +11,9 @@ L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{
  * case1: 建立 D3.js 的圖層，並透過 <g> 標籤確保後續不同圖層資料不會互相覆蓋
  */
 
+const svg = d3.select(map.getPanes().overlayPane).append("svg");
+const gDistricts = svg.append("g").attr("class", "leaflet-zoom-hide district-layer");
+const gCities = svg.append("g").attr("class", "leaflet-zoom-hide city-layer");
 
 /**
  * case2: D3.js 投影設定，將經緯度座標轉換為畫布上的點
@@ -20,15 +23,35 @@ L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{
  * - geoPath() 用於定義地理路徑產生器，並設定投影函數
  */
 
+const transform = d3.geoTransform({
+  point: function (x, y) {
+    const point = map.latLngToLayerPoint([y, x]);
+    this.stream.point(point.x, point.y);
+  },
+});
+const path = d3.geoPath().projection(transform);
+
+let cityFeatures, districtFeatures, regionsCities, regionsDistricts;
 
 /**
- * case4: 載入縣市資料
+ * case3: 載入縣市資料
  * topojson.feature() 用於將 TopoJSON 物件轉換為 GeoJSON 物件
  */
+d3.json("/asserts/city.json").then((data) => {
+  cityFeatures = topojson.feature(data, data.objects.COUNTY_MOI_1130718).features;
+  regionsCities = gCities
+    .selectAll("path")
+    .data(cityFeatures)
+    .join("path")
+    .attr("fill", "rgba(200, 200, 200, 0)")
+    .attr("stroke", "rgba(255, 255, 255, 0.2)")
+    .attr("stroke-width", 2);
 
+  resetCities();
+});
 
 /**
- * case5: 重設縣市圖層
+ * case4: 重設縣市圖層
  * path.bounds() 用於計算資料的範圍
  * e.g. [[-100, -50], [50, 100]]
  * 左上角座標為 bounds[0]，右下角座標為 bounds[1]
@@ -37,15 +60,41 @@ L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{
  * 2. 將 縣市 圖層也對齊左上角
  */
 
+function resetCities() {
+  if (!cityFeatures) return;
+
+  const bounds = path.bounds({
+    type: "FeatureCollection",
+    features: cityFeatures,
+  });
+
+  const top = bounds[0][1];
+  const left = bounds[0][0];
+  const right = bounds[1][0];
+  const bottom = bounds[1][1];
+
+  svg
+    .attr("width", right - left)
+    .attr("height", bottom - top)
+    .style("left", `${left}px`)
+    .style("top", `${top}px`);
+
+  gCities.attr("transform", `translate(${-left}, ${-top})`);
+  regionsCities.attr("d", path);
+}
+
 /**
- * case6: 載入行政區資料
+ * case5: 載入行政區資料
  */
 
 /**
- * case7: 重設行政區圖層
+ * case6: 重設行政區圖層
  */
 
 
 /**
- * case8: 縮放地圖時重設縣市與行政區圖層
+ * case7: 縮放地圖時重設縣市與行政區圖層
  */
+map.on("zoomend", () => {
+  resetCities();
+});

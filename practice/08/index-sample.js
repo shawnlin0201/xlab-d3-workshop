@@ -36,7 +36,7 @@ const path = d3.geoPath().projection(transform);
 let cityFeatures, districtFeatures, regionsCities, regionsDistricts;
 
 /**
- * case4: 載入縣市資料
+ * case3: 載入縣市資料
  * topojson.feature() 用於將 TopoJSON 物件轉換為 GeoJSON 物件
  */
 d3.json("/asserts/city.json").then((data) => {
@@ -53,7 +53,7 @@ d3.json("/asserts/city.json").then((data) => {
 });
 
 /**
- * case5: 重設縣市圖層
+ * case4: 重設縣市圖層
  * path.bounds() 用於計算資料的範圍
  * e.g. [[-100, -50], [50, 100]]
  * 左上角座標為 bounds[0]，右下角座標為 bounds[1]
@@ -85,7 +85,7 @@ function resetCities() {
 }
 
 /**
- * case6: 載入行政區資料
+ * case5: 載入行政區資料
  */
 d3.json("/asserts/district.json").then((data) => {
   districtFeatures = topojson.feature(data, data.objects.TOWN_MOI_1131028).features;
@@ -102,7 +102,7 @@ d3.json("/asserts/district.json").then((data) => {
 });
 
 /**
- * case7: 重設行政區圖層
+ * case6: 重設行政區圖層
  */
 function resetDistricts() {
   if (!districtFeatures) return;
@@ -120,7 +120,7 @@ function resetDistricts() {
 }
 
 /**
- * case8: 縮放地圖時重設縣市與行政區圖層
+ * case7: 縮放地圖時重設縣市與行政區圖層
  */
 map.on("zoomend", () => {
   resetCities();
